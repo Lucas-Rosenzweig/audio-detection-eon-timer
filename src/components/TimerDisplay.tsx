@@ -37,7 +37,6 @@ export function TimerDisplay({
   settingsDisabled,
   audioListening,
   audioDetected,
-  settingsDisabled,
 }: TimerDisplayProps) {
   const phases = useAppStore((s) => s.phases);
   const currentPhaseIndex = useAppStore((s) => s.currentPhaseIndex);
@@ -172,7 +171,6 @@ export function TimerDisplay({
             </svg>
           </button>
         </div>
-        <button className="timer-play-stop" onClick={onToggle} title={running ? 'Stop (Space)' : 'Start (Space)'}>
         <button
           className="timer-play-stop"
           onClick={onToggle}

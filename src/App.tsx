@@ -178,7 +178,6 @@ export default function App() {
           settingsDisabled={running}
           audioListening={isListening}
           audioDetected={isDetected}
-          settingsDisabled={running}
         />
 
         {/* Tab panel */}
