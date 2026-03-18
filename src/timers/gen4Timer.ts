@@ -1,9 +1,5 @@
-import {
-  CalibratorSettings,
-  createCalibration,
-  toDelays,
-  toMilliseconds,
-} from './calibrator';
+import { getMinutesBeforeTarget } from '../utils/constants';
+import { CalibratorSettings, createCalibration, toDelays } from './calibrator';
 import { createDelayPhases, calibrateDelay } from './delayTimer';
 
 export interface Gen4Model {
@@ -18,7 +14,18 @@ function getCalibration(settings: CalibratorSettings, model: Gen4Model): number 
 }
 
 export function createGen4Phases(settings: CalibratorSettings, model: Gen4Model): number[] {
-  return createDelayPhases(settings, model.targetDelay, model.targetSecond, getCalibration(settings, model));
+  return createDelayPhases(
+    settings,
+    model.targetDelay,
+    model.targetSecond,
+    getCalibration(settings, model),
+  );
+}
+
+export function getGen4MinutesBeforeTarget(settings: CalibratorSettings, model: Gen4Model): number {
+  return getMinutesBeforeTarget(
+    createDelayPhases(settings, model.targetDelay, model.targetSecond, 0),
+  );
 }
 
 export function calibrateGen4(
@@ -27,10 +34,7 @@ export function calibrateGen4(
   delayHit: number,
 ): number {
   if (delayHit > 0) {
-    return toDelays(
-      settings,
-      calibrateDelay(settings, model.targetDelay, delayHit),
-    );
+    return toDelays(settings, calibrateDelay(settings, model.targetDelay, delayHit));
   }
   return 0;
 }

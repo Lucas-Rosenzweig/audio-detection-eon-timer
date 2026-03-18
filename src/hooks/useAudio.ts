@@ -17,7 +17,9 @@ export const useAudio = (options?: UseAudioOptions) => {
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const requestRef = useRef<number | null>(null);
+    const dataArrayRef = useRef<Uint8Array | null>(null);
     const detectedRef = useRef(false);
+    const startingRef = useRef(false);
     const onDetectRef = useRef<UseAudioOptions['onDetect']>(options?.onDetect);
 
     useEffect(() => {
@@ -43,7 +45,7 @@ export const useAudio = (options?: UseAudioOptions) => {
             return;
         }
 
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const dataArray = dataArrayRef.current!;
         analyser.getByteTimeDomainData(dataArray);
 
         const maxDeviation = calculateMaxDeviation(dataArray);
@@ -52,8 +54,10 @@ export const useAudio = (options?: UseAudioOptions) => {
             detectedRef.current = true;
             setIsDetected(true);
             onDetectRef.current?.();
+            return;
         }
 
+        if (!analyserRef.current) return;
         requestRef.current = requestAnimationFrame(analyzeSound);
     }, [options?.threshold]);
 
@@ -77,16 +81,21 @@ export const useAudio = (options?: UseAudioOptions) => {
             audioContextRef.current = null;
         }
 
+        dataArrayRef.current = null;
         detectedRef.current = false;
         setIsListening(false);
-        setIsDetected(false);
     }, []);
 
     const startListening = async () => {
-        if (isListening) {
+        if (isListening || startingRef.current) {
             return;
         }
 
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('Microphone access requires a secure context (HTTPS or localhost).');
+        }
+
+        startingRef.current = true;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -100,14 +109,14 @@ export const useAudio = (options?: UseAudioOptions) => {
             analyserRef.current = analyser;
             sourceRef.current = source;
             streamRef.current = stream;
+            dataArrayRef.current = new Uint8Array(analyser.fftSize);
 
             detectedRef.current = false;
             setIsListening(true);
             setIsDetected(false);
             analyzeSound();
-        } catch (error) {
-            alert('Error accessing microphone: ' + error);
-            stopListening();
+        } finally {
+            startingRef.current = false;
         }
     };
 

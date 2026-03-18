@@ -1,15 +1,17 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useAppStore, useSettingsStore } from './store';
 import { usePhaseRunner } from './hooks/usePhaseRunner';
 import { useAudio } from './hooks/useAudio';
 import { useTheme } from './hooks/useTheme';
 import { useUrlParams } from './hooks/useUrlParams';
 import { TimerDisplay } from './components/TimerDisplay';
-import { Gen5Panel, type TimerPanelHandle } from './components/Gen5Panel';
+import { Gen5Panel } from './components/Gen5Panel';
+import type { TimerPanelHandle } from './components/timerPanel';
 import { Gen4Panel } from './components/Gen4Panel';
 import { Gen3Panel } from './components/Gen3Panel';
 import { CustomPanel } from './components/CustomPanel';
 import { SettingsDialog } from './components/SettingsDialog';
+import { resumeAudio } from './audio/sounds';
 import './App.css';
 
 const TAB_LABELS = ['Gen 5', 'Gen 4', 'Gen 3', 'Custom'];
@@ -44,7 +46,7 @@ export default function App() {
   const gen3Ref = useRef<TimerPanelHandle>(null);
   const customRef = useRef<TimerPanelHandle>(null);
 
-  const refs = [gen5Ref, gen4Ref, gen3Ref, customRef];
+  const refs = useMemo(() => [gen5Ref, gen4Ref, gen3Ref, customRef], []);
   const currentRef = refs[tabIndex];
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -52,10 +54,11 @@ export default function App() {
 
   // Update phases when tab or settings change
   const updatePhases = useCallback(() => {
-    const ref = refs[useSettingsStore.getState().tabIndex];
-    const phases = ref?.current?.createPhases();
-    if (phases) setPhases(phases);
-  }, [setPhases]);
+    const tab = useSettingsStore.getState().tabIndex;
+    const ref = refs[tab];
+    const displayData = ref?.current?.createDisplayData();
+    if (displayData) setPhases(displayData.phases, displayData.minutesBeforeTarget);
+  }, [refs, setPhases]);
 
   // Initial phases
   useEffect(() => {
@@ -69,11 +72,11 @@ export default function App() {
       setTabIndex(index);
       setTimeout(() => {
         const ref = refs[index];
-        const phases = ref?.current?.createPhases();
-        if (phases) setPhases(phases);
+        const displayData = ref?.current?.createDisplayData();
+        if (displayData) setPhases(displayData.phases, displayData.minutesBeforeTarget);
       }, 0);
     },
-    [running, setTabIndex, setPhases],
+    [refs, running, setTabIndex, setPhases],
   );
 
   const handleUpdate = useCallback(() => {
@@ -108,8 +111,11 @@ export default function App() {
       stopListening();
       setStatusMessage('Audio trigger stopped.');
     } else {
-      void startListening();
-      setStatusMessage('Listening for sound to start timer...');
+      resumeAudio();
+      startListening().then(
+        () => setStatusMessage('Listening for sound to start timer...'),
+        (err: unknown) => setStatusMessage(`Microphone error: ${err instanceof Error ? err.message : err}`),
+      );
     }
   }, [running, isListening, startListening, stopListening]);
 
@@ -172,6 +178,7 @@ export default function App() {
           settingsDisabled={running}
           audioListening={isListening}
           audioDetected={isDetected}
+          settingsDisabled={running}
         />
 
         {/* Tab panel */}
@@ -183,23 +190,49 @@ export default function App() {
                 className={`tab ${i === tabIndex ? 'active' : ''}`}
                 onClick={() => handleTabChange(i)}
                 disabled={running && i !== tabIndex}
-                title={running && i !== tabIndex ? 'Stop the timer to switch modes' : TAB_TOOLTIPS[i]}
+                title={
+                  running && i !== tabIndex ? 'Stop the timer to switch modes' : TAB_TOOLTIPS[i]
+                }
               >
                 {label}
               </button>
             ))}
           </div>
           <div className="tab-content">
-            <div style={{ display: tabIndex === 0 ? 'flex' : 'none', flex: 1, flexDirection: 'column' }}>
+            <div
+              style={{
+                display: tabIndex === 0 ? 'flex' : 'none',
+                flex: 1,
+                flexDirection: 'column',
+              }}
+            >
               <Gen5Panel ref={gen5Ref} onPhasesChange={updatePhases} disabled={running} />
             </div>
-            <div style={{ display: tabIndex === 1 ? 'flex' : 'none', flex: 1, flexDirection: 'column' }}>
+            <div
+              style={{
+                display: tabIndex === 1 ? 'flex' : 'none',
+                flex: 1,
+                flexDirection: 'column',
+              }}
+            >
               <Gen4Panel ref={gen4Ref} onPhasesChange={updatePhases} disabled={running} />
             </div>
-            <div style={{ display: tabIndex === 2 ? 'flex' : 'none', flex: 1, flexDirection: 'column' }}>
+            <div
+              style={{
+                display: tabIndex === 2 ? 'flex' : 'none',
+                flex: 1,
+                flexDirection: 'column',
+              }}
+            >
               <Gen3Panel ref={gen3Ref} onPhasesChange={updatePhases} disabled={running} />
             </div>
-            <div style={{ display: tabIndex === 3 ? 'flex' : 'none', flex: 1, flexDirection: 'column' }}>
+            <div
+              style={{
+                display: tabIndex === 3 ? 'flex' : 'none',
+                flex: 1,
+                flexDirection: 'column',
+              }}
+            >
               <CustomPanel ref={customRef} onPhasesChange={updatePhases} disabled={running} />
             </div>
           </div>
@@ -207,10 +240,20 @@ export default function App() {
 
         {/* Reset / Update buttons */}
         <div className="app-action-bar">
-          <button className="btn btn-icon" onClick={handleReset} disabled={running} title="Reset Timer (F5)">
+          <button
+            className="btn btn-icon"
+            onClick={handleReset}
+            disabled={running}
+            title="Reset Timer (F5)"
+          >
             ↺
           </button>
-          <button className="btn btn-update" onClick={handleUpdate} disabled={running} title="Apply calibration from hit values (F6)">
+          <button
+            className="btn btn-update"
+            onClick={handleUpdate}
+            disabled={running}
+            title="Apply calibration from hit values (F6)"
+          >
             Update
           </button>
         </div>

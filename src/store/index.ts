@@ -1,20 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import {
-  Console, Gen5Mode, Gen3Mode,
-  ActionMode, ActionSound, CustomUnit, Theme,
-} from '../utils/types';
-import { INFINITY } from '../utils/constants';
+import { Console, Gen5Mode, Gen3Mode, ActionMode, ActionSound, Theme } from '../utils/types';
 import type { CustomPhase } from '../timers/customTimer';
 
 // ─── App runtime state (not persisted) ───
 export interface AppState {
   phases: number[];
+  minutesBeforeTarget: number | null;
   currentPhaseIndex: number;
   currentPhaseElapsed: number;
   running: boolean;
 
-  setPhases: (phases: number[]) => void;
+  setPhases: (phases: number[], minutesBeforeTarget?: number | null) => void;
   setPhase: (index: number, value: number) => void;
   setCurrentPhaseIndex: (index: number) => void;
   setCurrentPhaseElapsed: (elapsed: number) => void;
@@ -24,11 +21,13 @@ export interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   phases: [],
+  minutesBeforeTarget: null,
   currentPhaseIndex: 0,
   currentPhaseElapsed: 0,
   running: false,
 
-  setPhases: (phases) => set({ phases, currentPhaseIndex: 0, currentPhaseElapsed: 0 }),
+  setPhases: (phases, minutesBeforeTarget = null) =>
+    set({ phases, minutesBeforeTarget, currentPhaseIndex: 0, currentPhaseElapsed: 0 }),
   setPhase: (index, value) => {
     const phases = [...get().phases];
     phases[index] = value;
@@ -180,7 +179,8 @@ export const useSettingsStore = create<SettingsState>()(
           theme: Theme.SYSTEM,
         }),
     }),
-    { name: 'eontimer-settings',
+    {
+      name: 'eontimer-settings',
       merge: (persisted: unknown, current: SettingsState): SettingsState => {
         const p = persisted as Partial<SettingsState>;
         return {
